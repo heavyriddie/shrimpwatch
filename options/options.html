@@ -36,6 +36,50 @@
               <input type="radio" name="calRole" value="side"> Side Camera
             </label>
           </div>
+
+          <!-- Phone camera connection (shown when Side Camera selected) -->
+          <div id="phoneCameraSection" style="display:none">
+            <div class="phone-divider">
+              <span>or connect your phone as side camera</span>
+            </div>
+
+            <div id="phoneDisconnected">
+              <button class="btn" id="connectPhoneBtn">Connect Phone via QR Code</button>
+              <p class="setting-desc" style="margin-top:6px">
+                Place your phone to your side at 90&deg; and scan the QR code
+              </p>
+            </div>
+
+            <div id="phoneConnecting" style="display:none">
+              <div style="text-align:center; margin:12px 0">
+                <img id="qrCodeImg" width="200" height="200" style="border-radius:8px; border:1px solid #eee;" alt="QR Code">
+                <p style="margin-top:10px; font-size:13px; color:#555">
+                  Scan this QR code with your phone camera
+                </p>
+                <p id="companionUrl" style="margin-top:4px; font-size:11px; color:#999; word-break:break-all"></p>
+                <p id="peerStatus" style="margin-top:8px; font-size:12px; color:#FF9800">
+                  Waiting for phone to connect...
+                </p>
+              </div>
+              <button class="btn" id="cancelPhoneBtn">Cancel</button>
+            </div>
+
+            <div id="phoneConnected" style="display:none">
+              <div style="display:flex; align-items:center; gap:12px; padding:12px; background:#E8F5E9; border-radius:8px">
+                <span style="font-size:24px">📱</span>
+                <div>
+                  <div style="font-weight:600; color:#2E7D32">Phone camera connected!</div>
+                  <div style="font-size:12px; color:#4CAF50">Side-view stream active — ready to calibrate</div>
+                </div>
+              </div>
+              <button class="btn btn-danger" id="disconnectPhoneBtn" style="margin-top:8px">Disconnect</button>
+            </div>
+
+            <p class="setting-desc" style="margin-top:8px; font-size:11px; color:#999">
+              Peer-to-peer over local Wi-Fi. No data goes to the cloud.
+            </p>
+          </div>
+
           <button class="btn btn-primary btn-large" id="captureBaselineBtn">
             Capture Baseline
           </button>
@@ -177,49 +221,6 @@
           "SHRIMP SHRIMP SHRIMP" jingle and "SHRIMP GOES BANANAS" text. You asked for this.
         </div>
         <button class="btn" id="testBananasBtn">Test SHRIMP GOES BANANAS</button>
-      </div>
-    </section>
-
-    <!-- Phone Side Camera -->
-    <section class="card">
-      <h2>Phone Side Camera (WebRTC)</h2>
-      <p class="setting-desc" style="margin-bottom:12px">
-        Connect your phone as a side-view camera. Place it to your side at 90&deg; pointing at you.
-      </p>
-
-      <div id="phoneDisconnected">
-        <button class="btn btn-primary" id="connectPhoneBtn">Generate QR Code</button>
-      </div>
-
-      <div id="phoneConnecting" style="display:none">
-        <div style="text-align:center; margin:16px 0">
-          <img id="qrCodeImg" width="200" height="200" style="border-radius:8px; border:1px solid #eee;" alt="QR Code">
-          <p style="margin-top:12px; font-size:13px; color:#555">
-            Scan this QR code with your phone camera
-          </p>
-          <p id="companionUrl" style="margin-top:4px; font-size:11px; color:#999; word-break:break-all"></p>
-          <p id="peerStatus" style="margin-top:8px; font-size:12px; color:#FF9800">
-            Waiting for phone to connect...
-          </p>
-        </div>
-        <button class="btn" id="cancelPhoneBtn">Cancel</button>
-      </div>
-
-      <div id="phoneConnected" style="display:none">
-        <div style="display:flex; align-items:center; gap:12px; padding:12px; background:#E8F5E9; border-radius:8px">
-          <span style="font-size:24px">📱</span>
-          <div>
-            <div style="font-weight:600; color:#2E7D32">Phone camera connected!</div>
-            <div style="font-size:12px; color:#4CAF50">Side-view stream active</div>
-          </div>
-        </div>
-        <button class="btn btn-danger" id="disconnectPhoneBtn" style="margin-top:12px">Disconnect</button>
-      </div>
-
-      <div class="bananas-note" style="margin-top:12px">
-        <strong>How it works:</strong> Your phone streams video directly to the extension
-        over your local Wi-Fi (peer-to-peer). No data goes to the cloud.
-        Both devices must be on the same network.
       </div>
     </section>
 

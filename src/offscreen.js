@@ -338,6 +338,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ type: 'PHONE_STATUS', connected: isPhoneConnected() });
       return false;
 
+    case 'PING':
+      sendResponse({ type: 'PONG' });
+      return false;
+
     default:
       return false;
   }

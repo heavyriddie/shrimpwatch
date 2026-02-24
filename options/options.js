@@ -338,6 +338,8 @@ function setupListeners() {
       const video = $('#calibrationVideo');
       video.style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
       $('#calibrationCanvas').style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
+      // Show phone camera option when side is selected
+      $('#phoneCameraSection').style.display = role === 'side' ? 'block' : 'none';
     });
   });
 

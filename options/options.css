@@ -266,6 +266,27 @@ header h1 {
   transition: width 0.5s ease;
 }
 
+/* Phone camera divider */
+.phone-divider {
+  display: flex;
+  align-items: center;
+  margin: 16px 0;
+  gap: 12px;
+}
+
+.phone-divider::before,
+.phone-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid #ddd;
+}
+
+.phone-divider span {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+}
+
 /* Bananas preview */
 .bananas-note {
   background: #FFF3E0;

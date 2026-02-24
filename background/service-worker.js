@@ -17,7 +17,20 @@ async function ensureOffscreenDocument() {
       justification: 'Camera access for posture analysis'
     });
     console.log('[ShrimpWatch] Offscreen document created');
+    // Wait for scripts to load and message listener to register
+    await waitForOffscreen();
   }
+}
+
+async function waitForOffscreen(retries = 10) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const resp = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'PING' });
+      if (resp?.type === 'PONG') return;
+    } catch (e) { /* not ready yet */ }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  console.warn('[ShrimpWatch] Offscreen document may not be ready');
 }
 
 // ── Alarm management ──
