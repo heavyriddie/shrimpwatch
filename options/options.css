@@ -340,6 +340,19 @@ header h1 {
   margin-top: 12px;
 }
 
+/* Posture progression */
+.progression-divider {
+  border-top: 1px solid #eee;
+  margin: 20px 0;
+}
+
+.progression-img {
+  width: 100%;
+  max-width: 600px;
+  display: block;
+  margin: 0 auto;
+}
+
 /* Privacy */
 .privacy-note {
   font-size: 12px;

@@ -53,6 +53,8 @@ async function loadCalibrationStatus() {
     $('#calibrationStatus').textContent =
       `Last calibrated: ${date} (${cams.join(' + ')} camera${cams.length > 1 ? 's' : ''})`;
     $('#startCalibrationBtn').textContent = 'Recalibrate';
+    // Show posture progression guide
+    $('#postureProgression').style.display = 'block';
   }
 }
 
@@ -176,6 +178,9 @@ async function captureBaseline(role, deviceId, progressEl, progressFillEl, resul
 
       resultEl.style.display = 'block';
       resultEl.style.color = '#4CAF50';
+
+      // Show posture progression guide
+      $('#postureProgression').style.display = 'block';
 
       if (hasFront && hasSide) {
         resultEl.innerHTML =
