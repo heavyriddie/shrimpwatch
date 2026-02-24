@@ -419,56 +419,55 @@ function setupListeners() {
   let phoneCheckInterval = null;
 
   $('#connectPhoneBtn').addEventListener('click', async () => {
-    $('#connectPhoneBtn').disabled = true;
-    $('#connectPhoneBtn').textContent = 'Setting up...';
+    const btn = $('#connectPhoneBtn');
+    const errEl = $('#phoneError');
+    btn.disabled = true;
+    btn.textContent = 'Setting up...';
+    errEl.style.display = 'none';
 
     try {
-      // Ask service worker to init the peer via offscreen document
-      const result = await chrome.runtime.sendMessage({
-        target: 'background', type: 'INIT_PEER'
-      });
+      // Step 1: ensure offscreen document is created and ready
+      await chrome.runtime.sendMessage({ target: 'background', type: 'ENSURE_OFFSCREEN' });
 
-      if (result?.peerId) {
-        const peerId = result.peerId;
+      // Step 2: send INIT_PEER directly (offscreen doc picks it up)
+      const result = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'INIT_PEER' });
 
-        // Companion page URL - hosted on GitHub Pages
-        const companionUrl = `${COMPANION_URL}/#peer=${peerId}`;
-
-        // Generate QR code using API
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(companionUrl)}`;
-
-        $('#qrCodeImg').src = qrUrl;
-        $('#companionUrl').textContent = companionUrl;
-
-        // Show QR code UI
-        $('#phoneDisconnected').style.display = 'none';
-        $('#phoneConnecting').style.display = 'block';
-
-        // Poll for phone connection
-        phoneCheckInterval = setInterval(async () => {
-          try {
-            const status = await chrome.runtime.sendMessage({
-              target: 'background', type: 'PHONE_STATUS'
-            });
-            if (status?.connected) {
-              clearInterval(phoneCheckInterval);
-              phoneCheckInterval = null;
-              $('#phoneConnecting').style.display = 'none';
-              $('#phoneConnected').style.display = 'block';
-            }
-          } catch (e) { /* ignore */ }
-        }, 2000);
-      } else {
-        throw new Error(result?.error || 'Failed to create peer');
+      if (!result?.peerId) {
+        throw new Error(result?.error || 'No peer ID returned');
       }
+
+      const companionUrl = `${COMPANION_URL}/#peer=${result.peerId}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(companionUrl)}`;
+
+      $('#qrCodeImg').src = qrUrl;
+      $('#companionUrl').textContent = companionUrl;
+
+      // Show QR code UI
+      $('#phoneDisconnected').style.display = 'none';
+      $('#phoneConnecting').style.display = 'block';
+
+      // Poll for phone connection
+      phoneCheckInterval = setInterval(async () => {
+        try {
+          const status = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'PHONE_STATUS' });
+          if (status?.connected) {
+            clearInterval(phoneCheckInterval);
+            phoneCheckInterval = null;
+            $('#phoneConnecting').style.display = 'none';
+            $('#phoneConnected').style.display = 'block';
+          }
+        } catch (e) { /* ignore */ }
+      }, 2000);
+
+      return; // success — don't reset button
     } catch (e) {
       console.error('Phone connection error:', e);
-      $('#peerStatus').textContent = 'Error: ' + e.message;
-      $('#peerStatus').style.color = '#F44336';
+      errEl.textContent = 'Error: ' + e.message;
+      errEl.style.display = 'block';
     }
 
-    $('#connectPhoneBtn').disabled = false;
-    $('#connectPhoneBtn').textContent = 'Generate QR Code';
+    btn.disabled = false;
+    btn.textContent = 'Connect Phone via QR Code';
   });
 
   $('#cancelPhoneBtn').addEventListener('click', () => {
