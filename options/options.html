@@ -18,41 +18,51 @@
       <p id="calibrationStatus">Not calibrated yet. Calibrate to start monitoring.</p>
 
       <div id="calibrationUI" style="display:none">
-        <div class="calibration-preview">
-          <video id="calibrationVideo" autoplay playsinline></video>
-          <canvas id="calibrationCanvas"></canvas>
-          <div class="calibration-guide" id="calibrationGuide">
-            <p>Sit in your best posture. Shoulders back, chin level.</p>
+        <div class="calibration-role" style="margin-bottom:16px">
+          <label>
+            <input type="radio" name="calRole" value="front" checked> Front Camera (laptop/webcam)
+          </label>
+          <label>
+            <input type="radio" name="calRole" value="side"> Side Camera (phone)
+          </label>
+        </div>
+
+        <!-- FRONT CAMERA: system camera picker + preview -->
+        <div id="frontCameraSection">
+          <div class="calibration-preview">
+            <video id="calibrationVideo" autoplay playsinline></video>
+            <canvas id="calibrationCanvas"></canvas>
+            <div class="calibration-guide" id="calibrationGuide">
+              <p>Sit in your best posture. Shoulders back, chin level.</p>
+            </div>
+          </div>
+          <div class="calibration-controls">
+            <select id="calibrationCameraSelect"></select>
+            <button class="btn btn-primary btn-large" id="captureBaselineBtn">
+              Capture Baseline
+            </button>
+            <div class="progress-bar" id="captureProgress" style="display:none">
+              <div class="progress-fill" id="captureProgressFill"></div>
+            </div>
+            <p id="calibrationResult" style="display:none"></p>
           </div>
         </div>
 
-        <div class="calibration-controls">
-          <select id="calibrationCameraSelect"></select>
-          <div class="calibration-role">
-            <label>
-              <input type="radio" name="calRole" value="front" checked> Front Camera
-            </label>
-            <label>
-              <input type="radio" name="calRole" value="side"> Side Camera
-            </label>
-          </div>
-
-          <!-- Phone camera connection (shown when Side Camera selected) -->
-          <div id="phoneCameraSection" style="display:none">
-            <div class="phone-divider">
-              <span>or connect your phone as side camera</span>
-            </div>
+        <!-- SIDE CAMERA: phone-only via QR code -->
+        <div id="sideCameraSection" style="display:none">
+          <div style="text-align:center; padding:16px 0">
+            <p style="font-size:14px; color:#555; margin-bottom:16px">
+              Connect your phone to use as a side-view camera.<br>
+              Place it to your side at 90&deg;, front camera facing you.
+            </p>
 
             <div id="phoneDisconnected">
-              <button class="btn" id="connectPhoneBtn">Connect Phone via QR Code</button>
-              <p class="setting-desc" style="margin-top:6px">
-                Place your phone to your side at 90&deg; and scan the QR code
-              </p>
+              <button class="btn btn-primary" id="connectPhoneBtn">Connect Phone via QR Code</button>
               <p id="phoneError" style="display:none; margin-top:8px; font-size:12px; color:#F44336; font-weight:500"></p>
             </div>
 
             <div id="phoneConnecting" style="display:none">
-              <div style="text-align:center; margin:12px 0">
+              <div style="margin:16px 0">
                 <img id="qrCodeImg" width="200" height="200" style="border-radius:8px; border:1px solid #eee;" alt="QR Code">
                 <p style="margin-top:10px; font-size:13px; color:#555">
                   Scan this QR code with your phone camera
@@ -66,28 +76,27 @@
             </div>
 
             <div id="phoneConnected" style="display:none">
-              <div style="display:flex; align-items:center; gap:12px; padding:12px; background:#E8F5E9; border-radius:8px">
+              <div style="display:flex; align-items:center; gap:12px; padding:12px; background:#E8F5E9; border-radius:8px; text-align:left; margin-bottom:12px">
                 <span style="font-size:24px">📱</span>
                 <div>
                   <div style="font-weight:600; color:#2E7D32">Phone camera connected!</div>
-                  <div style="font-size:12px; color:#4CAF50">Side-view stream active — ready to calibrate</div>
+                  <div style="font-size:12px; color:#4CAF50">Side-view stream active</div>
                 </div>
               </div>
-              <button class="btn btn-danger" id="disconnectPhoneBtn" style="margin-top:8px">Disconnect</button>
+              <button class="btn btn-primary btn-large" id="captureSideBaselineBtn">
+                Capture Side Baseline
+              </button>
+              <div class="progress-bar" id="sideProgress" style="display:none">
+                <div class="progress-fill" id="sideProgressFill"></div>
+              </div>
+              <p id="sideCalibrationResult" style="display:none"></p>
+              <button class="btn btn-danger" id="disconnectPhoneBtn" style="margin-top:12px">Disconnect Phone</button>
             </div>
 
-            <p class="setting-desc" style="margin-top:8px; font-size:11px; color:#999">
+            <p class="setting-desc" style="margin-top:12px; font-size:11px; color:#999">
               Peer-to-peer over local Wi-Fi. No data goes to the cloud.
             </p>
           </div>
-
-          <button class="btn btn-primary btn-large" id="captureBaselineBtn">
-            Capture Baseline
-          </button>
-          <div class="progress-bar" id="captureProgress" style="display:none">
-            <div class="progress-fill" id="captureProgressFill"></div>
-          </div>
-          <p id="calibrationResult" style="display:none"></p>
         </div>
       </div>
 

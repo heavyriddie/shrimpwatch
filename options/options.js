@@ -62,9 +62,11 @@ async function startCalibration() {
   $('#stopCalibrationBtn').style.display = 'inline-block';
   $('#calibrationResult').style.display = 'none';
 
-  // Enumerate cameras
+  // Show the right section based on current role
+  updateCalibrationView();
+
+  // Enumerate system cameras for front view
   try {
-    // Ensure we have permission first
     const testStream = await navigator.mediaDevices.getUserMedia({ video: true });
     testStream.getTracks().forEach(t => t.stop());
 
@@ -80,12 +82,20 @@ async function startCalibration() {
       select.appendChild(opt);
     }
 
-    // Start preview
-    await startPreview(cameras[0]?.deviceId);
+    // Start preview if front camera is selected
+    if (document.querySelector('input[name="calRole"]:checked').value === 'front') {
+      await startPreview(cameras[0]?.deviceId);
+    }
   } catch (e) {
     $('#calibrationGuide').querySelector('p').textContent =
       'Could not access camera. Please grant permission.';
   }
+}
+
+function updateCalibrationView() {
+  const role = document.querySelector('input[name="calRole"]:checked').value;
+  $('#frontCameraSection').style.display = role === 'front' ? 'block' : 'none';
+  $('#sideCameraSection').style.display = role === 'side' ? 'block' : 'none';
 }
 
 async function startPreview(deviceId) {
@@ -102,11 +112,8 @@ async function startPreview(deviceId) {
     });
     const video = $('#calibrationVideo');
     video.srcObject = calibrationStream;
-
-    // Unflip for side camera
-    const role = document.querySelector('input[name="calRole"]:checked').value;
-    video.style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
-    $('#calibrationCanvas').style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
+    video.style.transform = 'scaleX(-1)';
+    $('#calibrationCanvas').style.transform = 'scaleX(-1)';
   } catch (e) {
     console.error('Preview failed:', e);
   }
@@ -118,35 +125,26 @@ function stopPreview() {
     calibrationStream = null;
   }
   const video = $('#calibrationVideo');
-  video.srcObject = null;
+  if (video) video.srcObject = null;
 }
 
-async function captureBaseline() {
-  const role = document.querySelector('input[name="calRole"]:checked').value;
-
-  // If side camera and phone is connected, use the phone's WebRTC stream
-  const phoneConnected = $('#phoneConnected')?.style.display === 'block';
-  const deviceId = (role === 'side' && phoneConnected) ? '__webrtc__' : $('#calibrationCameraSelect').value;
-
+async function captureBaseline(role, deviceId, progressEl, progressFillEl, resultEl, btnEl) {
   if (!deviceId) return;
 
-  // Ask service worker to ensure offscreen document exists
-  // (chrome.offscreen is only available in the service worker context)
   await chrome.runtime.sendMessage({ target: 'background', type: 'ENSURE_OFFSCREEN' });
 
-  $('#captureProgress').style.display = 'block';
-  $('#captureBaselineBtn').disabled = true;
-  $('#captureBaselineBtn').textContent = 'Capturing... sit still!';
+  progressEl.style.display = 'block';
+  btnEl.disabled = true;
+  const origText = btnEl.textContent;
+  btnEl.textContent = 'Capturing... sit still!';
 
-  // Animate progress
   let progress = 0;
   const progressTimer = setInterval(() => {
     progress = Math.min(progress + 3, 90);
-    $('#captureProgressFill').style.width = progress + '%';
+    progressFillEl.style.width = progress + '%';
   }, 100);
 
   try {
-    // Send calibration request to offscreen document
     const result = await chrome.runtime.sendMessage({
       target: 'offscreen',
       type: 'CALIBRATE',
@@ -157,21 +155,18 @@ async function captureBaseline() {
     });
 
     clearInterval(progressTimer);
-    $('#captureProgressFill').style.width = '100%';
+    progressFillEl.style.width = '100%';
 
     if (result?.baseline) {
-      // Save calibration
       const existing = await getCalibration() || {};
       existing[role] = result.baseline;
+      existing.calibratedAt = Date.now();
       await saveCalibration(existing);
 
-      // Also save camera ID
       const settingsKey = role === 'front' ? 'frontCameraId' : 'sideCameraId';
       await saveSettings({ [settingsKey]: deviceId });
 
-      // Notify service worker (auto-starts monitoring if first calibration)
       chrome.runtime.sendMessage({ target: 'background', type: MSG.CALIBRATION_COMPLETE });
-
       await loadCalibrationStatus();
 
       // Show success with guidance
@@ -179,35 +174,33 @@ async function captureBaseline() {
       const hasFront = !!updated?.front;
       const hasSide = !!updated?.side;
 
-      $('#calibrationResult').style.display = 'block';
-      $('#calibrationResult').style.color = '#4CAF50';
+      resultEl.style.display = 'block';
+      resultEl.style.color = '#4CAF50';
 
       if (hasFront && hasSide) {
-        $('#calibrationResult').innerHTML =
+        resultEl.innerHTML =
           `<strong>Both cameras calibrated!</strong> Monitoring is now active. ` +
-          `You can close this page — ShrimpWatch will check your posture automatically and alert you if it deteriorates.`;
-      } else if (role === 'front' && !hasSide) {
-        $('#calibrationResult').innerHTML =
-          `<strong>Front camera calibrated!</strong> ` +
-          `You can start monitoring now, or also calibrate a side camera for better accuracy. ` +
-          `Select "Side Camera" above to add one.`;
+          `ShrimpWatch will check your posture automatically and alert you if it deteriorates.`;
+      } else if (role === 'front') {
+        resultEl.innerHTML =
+          `<strong>Front camera calibrated!</strong> Monitoring is active. ` +
+          `For better accuracy, also add a side camera via the "Side Camera" tab above.`;
       } else {
-        $('#calibrationResult').innerHTML =
-          `<strong>${role === 'front' ? 'Front' : 'Side'} camera calibrated!</strong> ` +
-          `Monitoring is now active.`;
+        resultEl.innerHTML =
+          `<strong>Side camera calibrated!</strong> Monitoring is active.`;
       }
     } else {
       throw new Error(result?.error || 'No baseline returned');
     }
   } catch (e) {
     clearInterval(progressTimer);
-    $('#calibrationResult').style.display = 'block';
-    $('#calibrationResult').textContent = 'Calibration failed: ' + e.message;
-    $('#calibrationResult').style.color = '#F44336';
+    resultEl.style.display = 'block';
+    resultEl.textContent = 'Calibration failed: ' + e.message;
+    resultEl.style.color = '#F44336';
   }
 
-  $('#captureBaselineBtn').disabled = false;
-  $('#captureBaselineBtn').textContent = 'Capture Baseline';
+  btnEl.disabled = false;
+  btnEl.textContent = origText;
 }
 
 function stopCalibration() {
@@ -347,7 +340,20 @@ function setupListeners() {
   // Calibration
   $('#startCalibrationBtn').addEventListener('click', startCalibration);
   $('#stopCalibrationBtn').addEventListener('click', stopCalibration);
-  $('#captureBaselineBtn').addEventListener('click', captureBaseline);
+
+  // Front camera: capture baseline
+  $('#captureBaselineBtn').addEventListener('click', () => {
+    captureBaseline('front', $('#calibrationCameraSelect').value,
+      $('#captureProgress'), $('#captureProgressFill'),
+      $('#calibrationResult'), $('#captureBaselineBtn'));
+  });
+
+  // Side camera: capture baseline from phone
+  $('#captureSideBaselineBtn').addEventListener('click', () => {
+    captureBaseline('side', '__webrtc__',
+      $('#sideProgress'), $('#sideProgressFill'),
+      $('#sideCalibrationResult'), $('#captureSideBaselineBtn'));
+  });
 
   $('#calibrationCameraSelect').addEventListener('change', (e) => {
     startPreview(e.target.value);
@@ -355,12 +361,14 @@ function setupListeners() {
 
   document.querySelectorAll('input[name="calRole"]').forEach(radio => {
     radio.addEventListener('change', () => {
+      updateCalibrationView();
       const role = document.querySelector('input[name="calRole"]:checked').value;
-      const video = $('#calibrationVideo');
-      video.style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
-      $('#calibrationCanvas').style.transform = role === 'front' ? 'scaleX(-1)' : 'none';
-      // Show phone camera option when side is selected
-      $('#phoneCameraSection').style.display = role === 'side' ? 'block' : 'none';
+      if (role === 'front') {
+        const deviceId = $('#calibrationCameraSelect').value;
+        if (deviceId) startPreview(deviceId);
+      } else {
+        stopPreview();
+      }
     });
   });
 
@@ -407,33 +415,46 @@ function setupListeners() {
 
   // Test SHRIMP GOES BANANAS
   $('#testBananasBtn').addEventListener('click', async () => {
-    // Find a regular web page tab (not extension/chrome pages)
-    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || /^(chrome|chrome-extension|edge|about|devtools):/.test(tab.url || '')) {
-      [tab] = await chrome.tabs.query({ currentWindow: true, url: ['http://*/*', 'https://*/*'] });
-    }
-    if (!tab) {
-      // No web page tab found — open one
-      tab = await chrome.tabs.create({ url: 'https://example.com', active: false });
-      // Wait for it to load
-      await new Promise(r => setTimeout(r, 1500));
-    }
+    const btn = $('#testBananasBtn');
+    btn.disabled = true;
+    btn.textContent = 'Launching...';
 
     try {
-      await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
-      chrome.tabs.update(tab.id, { active: true }); // switch to it
-    } catch (e) {
+      // Find any regular web page tab
+      const allTabs = await chrome.tabs.query({ currentWindow: true });
+      let tab = allTabs.find(t => /^https?:\/\//.test(t.url || ''));
+
+      if (!tab) {
+        // Open a new tab and wait for it to fully load
+        tab = await chrome.tabs.create({ url: 'https://example.com', active: true });
+        await new Promise((resolve) => {
+          const listener = (tabId, info) => {
+            if (tabId === tab.id && info.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(listener);
+          setTimeout(resolve, 5000); // fallback timeout
+        });
+      } else {
+        await chrome.tabs.update(tab.id, { active: true });
+      }
+
+      // Inject content script and trigger bananas
       try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['content/blur-overlay.js']
         });
-        await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
-        chrome.tabs.update(tab.id, { active: true });
-      } catch (e2) {
-        alert('Could not test. Open any website and try again.');
-      }
+      } catch (e) { /* might already be loaded */ }
+      await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
+    } catch (e) {
+      alert('Could not test: ' + e.message);
     }
+
+    btn.disabled = false;
+    btn.textContent = 'Test SHRIMP GOES BANANAS';
   });
 
   // Clear data

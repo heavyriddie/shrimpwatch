@@ -110,7 +110,10 @@ async function performPostureCheck() {
     }
 
     if (result?.score != null) {
+      console.log(`[ShrimpWatch] Check result: score=${result.score}, status=${result.status}`);
       await handlePostureResult(result, settings);
+    } else {
+      console.warn('[ShrimpWatch] No score in result:', JSON.stringify(result));
     }
   } catch (err) {
     console.error('[ShrimpWatch] Check failed:', err);
@@ -181,51 +184,44 @@ async function handlePostureResult(result, settings) {
 
 async function triggerAlert(settings, score) {
   const mode = settings.alertMode;
+  console.log(`[ShrimpWatch] Triggering alert: mode=${mode}, score=${score}`);
 
-  if (mode === ALERT_MODE.NOTIFICATION || mode === ALERT_MODE.BLUR) {
-    // Always show notification
-    const msg = POOR_POSTURE_MESSAGES[Math.floor(Math.random() * POOR_POSTURE_MESSAGES.length)];
-    chrome.notifications.create('posture-alert', {
-      type: 'basic',
-      iconUrl: 'icons/icon128.png',
-      title: `ShrimpWatch: Score ${score}/100`,
-      message: msg,
-      buttons: [
-        { title: 'I fixed it!' },
-        { title: 'Snooze 5 min' }
-      ],
-      priority: 2,
-      requireInteraction: true
-    });
-  }
+  // Always show a notification regardless of mode
+  const msg = POOR_POSTURE_MESSAGES[Math.floor(Math.random() * POOR_POSTURE_MESSAGES.length)];
+  const notifTitle = mode === ALERT_MODE.SHRIMP_BANANAS
+    ? 'SHRIMP GOES BANANAS!'
+    : `ShrimpWatch: Score ${score}/100`;
+  const notifMsg = mode === ALERT_MODE.SHRIMP_BANANAS
+    ? `Score: ${score}/100. THE SHRIMP IS UPSET. SIT UP STRAIGHT!`
+    : msg;
+
+  chrome.notifications.create('posture-alert', {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: notifTitle,
+    message: notifMsg,
+    buttons: [
+      { title: 'I fixed it!' },
+      { title: 'Snooze 5 min' }
+    ],
+    priority: 2,
+    requireInteraction: true
+  });
 
   if (mode === ALERT_MODE.BLUR) {
     const result = await sendToActiveTab(MSG.BLUR, { level: settings.blurIntensity });
     if (result?.success) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      await saveSession({ isBlurActive: true, blurredTabId: tab?.id });
+      const tabs = await chrome.tabs.query({ currentWindow: true, url: ['http://*/*', 'https://*/*'] });
+      await saveSession({ isBlurActive: true, blurredTabId: tabs[0]?.id });
     }
   }
 
   if (mode === ALERT_MODE.SHRIMP_BANANAS) {
     const result = await sendToActiveTab(MSG.SHRIMP_BANANAS, { score });
     if (result?.success) {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      await saveSession({ isBlurActive: true, blurredTabId: tab?.id });
+      const tabs = await chrome.tabs.query({ currentWindow: true, url: ['http://*/*', 'https://*/*'] });
+      await saveSession({ isBlurActive: true, blurredTabId: tabs[0]?.id });
     }
-    // Also show notification
-    chrome.notifications.create('posture-alert', {
-      type: 'basic',
-      iconUrl: 'icons/icon128.png',
-      title: 'SHRIMP GOES BANANAS!',
-      message: `Score: ${score}/100. THE SHRIMP IS UPSET. SIT UP STRAIGHT!`,
-      buttons: [
-        { title: 'I fixed it!' },
-        { title: 'Snooze 5 min' }
-      ],
-      priority: 2,
-      requireInteraction: true
-    });
   }
 }
 
