@@ -182,17 +182,24 @@ async function captureBaseline(role, deviceId, progressEl, progressFillEl, resul
       // Show posture progression guide
       $('#postureProgression').style.display = 'block';
 
-      if (hasFront && hasSide) {
+      const otherDone = role === 'front' ? hasSide : hasFront;
+
+      if (role === 'front' && otherDone) {
         resultEl.innerHTML =
-          `<strong>Both cameras calibrated!</strong> Monitoring is now active. ` +
+          `<strong>Front camera calibrated!</strong> Both cameras are now active. ` +
           `ShrimpWatch will check your posture automatically and alert you if it deteriorates.`;
       } else if (role === 'front') {
         resultEl.innerHTML =
           `<strong>Front camera calibrated!</strong> Monitoring is active. ` +
-          `For better accuracy, also add a side camera via the "Side Camera" tab above.`;
+          `For better accuracy, also add a side camera — switch to "Side Camera" above.`;
+      } else if (role === 'side' && otherDone) {
+        resultEl.innerHTML =
+          `<strong>Side camera calibrated!</strong> Both cameras are now active. ` +
+          `ShrimpWatch will check your posture automatically and alert you if it deteriorates.`;
       } else {
         resultEl.innerHTML =
-          `<strong>Side camera calibrated!</strong> Monitoring is active.`;
+          `<strong>Side camera calibrated!</strong> Monitoring is active. ` +
+          `Don't forget to calibrate your front camera too — switch to "Front Camera" above.`;
       }
     } else {
       throw new Error(result?.error || 'No baseline returned');
@@ -446,14 +453,26 @@ function setupListeners() {
         await chrome.tabs.update(tab.id, { active: true });
       }
 
-      // Inject content script and trigger bananas
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content/blur-overlay.js']
-        });
-      } catch (e) { /* might already be loaded */ }
-      await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
+      // Inject content script and trigger bananas with retry
+      const sendBananas = async (retries = 3) => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ['content/blur-overlay.js']
+            });
+          } catch (e) { /* might already be loaded */ }
+          // Give the content script time to register its listener
+          await new Promise(r => setTimeout(r, 500));
+          try {
+            await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
+            return; // success
+          } catch (e) {
+            if (i === retries - 1) throw e;
+          }
+        }
+      };
+      await sendBananas();
     } catch (e) {
       alert('Could not test: ' + e.message);
     }

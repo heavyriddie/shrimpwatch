@@ -346,11 +346,69 @@ header h1 {
   margin: 20px 0;
 }
 
-.progression-img {
+.progression-title {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.progression-subtitle {
+  text-align: center;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+.progression-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.progression-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 130px;
+}
+
+.progression-stage img {
   width: 100%;
-  max-width: 600px;
-  display: block;
-  margin: 0 auto;
+  border-radius: 10px;
+  border: 2px solid #f0f0f0;
+  transition: transform 0.2s;
+}
+
+.progression-stage:hover img {
+  transform: scale(1.05);
+}
+
+.progression-score {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.progression-score.score-good { color: #4CAF50; }
+.progression-score.score-fair { color: #FF9800; }
+.progression-score.score-poor { color: #F44336; }
+.progression-score.score-shrimp { color: #B71C1C; }
+
+.progression-label {
+  font-size: 11px;
+  color: #777;
+  margin-top: 1px;
+}
+
+.progression-arrow {
+  font-size: 18px;
+  color: #ccc;
+  flex-shrink: 0;
+  padding-bottom: 28px;
 }
 
 /* Privacy */
