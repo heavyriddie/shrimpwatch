@@ -123,6 +123,29 @@ header h1 {
   transform: translateX(20px);
 }
 
+.toggle-large {
+  width: 52px;
+  height: 28px;
+}
+
+.toggle-large .slider::before {
+  width: 22px;
+  height: 22px;
+}
+
+.toggle-large input:checked + .slider::before {
+  transform: translateX(24px);
+}
+
+.monitoring-card {
+  border-left: 4px solid #ccc;
+  transition: border-color 0.3s;
+}
+
+.monitoring-card.active {
+  border-left-color: #4CAF50;
+}
+
 /* Range */
 .range-with-value {
   display: flex;

@@ -10,6 +10,7 @@ let calibrationStream = null;
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await loadCalibrationStatus();
+  await loadMonitoringStatus();
   await loadAnalytics();
   setupListeners();
 });
@@ -34,6 +35,35 @@ async function loadSettings() {
   $('#blurAutoRemove').checked = s.blurAutoRemove;
 
   updateAlertModeUI(s.alertMode);
+}
+
+// ── Monitoring toggle ──
+
+async function loadMonitoringStatus() {
+  try {
+    const status = await chrome.runtime.sendMessage({ target: 'background', type: MSG.GET_STATUS });
+    if (!status) return;
+
+    const enabled = status.settings.monitoringEnabled;
+    $('#monitoringToggle').checked = enabled;
+    updateMonitoringUI(enabled, status.hasCalibration);
+  } catch (e) {
+    $('#monitoringStatus').textContent = 'Could not load status';
+  }
+}
+
+function updateMonitoringUI(enabled, hasCalibration) {
+  const card = document.querySelector('.monitoring-card');
+  if (enabled) {
+    card.classList.add('active');
+    $('#monitoringStatus').textContent = 'Active — checking your posture';
+  } else if (!hasCalibration) {
+    card.classList.remove('active');
+    $('#monitoringStatus').textContent = 'Calibrate below to start monitoring';
+  } else {
+    card.classList.remove('active');
+    $('#monitoringStatus').textContent = 'Paused';
+  }
 }
 
 function updateAlertModeUI(mode) {
@@ -170,6 +200,9 @@ async function captureBaseline(role, deviceId, progressEl, progressFillEl, resul
 
       chrome.runtime.sendMessage({ target: 'background', type: MSG.CALIBRATION_COMPLETE });
       await loadCalibrationStatus();
+      // Update monitoring toggle — calibration auto-starts monitoring
+      $('#monitoringToggle').checked = true;
+      updateMonitoringUI(true, true);
 
       // Show success with guidance
       const updated = await getCalibration();
@@ -349,6 +382,15 @@ function drawChart(summaries) {
 // ── Event listeners ──
 
 function setupListeners() {
+  // Monitoring toggle
+  $('#monitoringToggle').addEventListener('change', async () => {
+    const result = await chrome.runtime.sendMessage({ target: 'background', type: MSG.TOGGLE_MONITORING });
+    if (result) {
+      const cal = await getCalibration();
+      updateMonitoringUI(result.enabled, !!cal);
+    }
+  });
+
   // Calibration
   $('#startCalibrationBtn').addEventListener('click', startCalibration);
   $('#stopCalibrationBtn').addEventListener('click', stopCalibration);

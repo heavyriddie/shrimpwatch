@@ -71,10 +71,14 @@ async function stopMonitoring() {
     } catch (e) { /* tab may not exist */ }
   }
 
-  // Release camera streams
+  // Close the offscreen document to fully release camera
   try {
     await chrome.runtime.sendMessage({ target: 'offscreen', type: MSG.STOP_STREAMS });
   } catch (e) { /* offscreen may not exist */ }
+  try {
+    await chrome.offscreen.closeDocument();
+    console.log('[ShrimpWatch] Offscreen document closed');
+  } catch (e) { /* may not exist */ }
 
   await saveSession({ ...DEFAULT_SESSION });
   console.log('[ShrimpWatch] Monitoring stopped');
