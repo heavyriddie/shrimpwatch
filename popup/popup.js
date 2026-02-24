@@ -8,7 +8,6 @@ let nextCheckTimer = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadStatus();
-  await loadCameras();
   setupListeners();
   startNextCheckCountdown();
 });
@@ -56,9 +55,8 @@ async function loadStatus() {
 
     // Calibration status
     if (!hasCalibration) {
-      $('#calibrateBtn').textContent = 'Calibrate (Required)';
-      $('#calibrateBtn').classList.add('btn-primary');
       $('#checkNowBtn').disabled = true;
+      $('#settingsBtn').textContent = 'Calibrate (Required)';
     }
 
     // Camera permission check
@@ -118,55 +116,6 @@ function updateStatusText(monitoring, hasCalibration) {
   }
 }
 
-// ── Camera management ──
-
-async function loadCameras() {
-  const settings = await getSettings();
-
-  try {
-    // Try to enumerate — will only show labels if permission granted
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cameras = devices.filter(d => d.kind === 'videoinput');
-
-    populateCameraSelect('#frontCamera', cameras, settings.frontCameraId);
-    populateCameraSelect('#sideCamera', cameras, settings.sideCameraId, true);
-  } catch (e) {
-    console.warn('Could not enumerate cameras:', e);
-  }
-}
-
-function populateCameraSelect(selector, cameras, selectedId, includeNone = false) {
-  const select = $(selector);
-  select.innerHTML = '';
-
-  if (includeNone) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'None';
-    select.appendChild(opt);
-  }
-
-  for (const cam of cameras) {
-    const opt = document.createElement('option');
-    opt.value = cam.deviceId;
-    opt.textContent = cam.label || `Camera ${cam.deviceId.slice(0, 8)}`;
-    if (cam.deviceId === selectedId) opt.selected = true;
-    select.appendChild(opt);
-  }
-
-  if (!includeNone && cameras.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'No cameras found';
-    select.appendChild(opt);
-  }
-}
-
-async function getSettings() {
-  const { settings } = await chrome.storage.local.get('settings');
-  return settings || {};
-}
-
 // ── Event listeners ──
 
 function setupListeners() {
@@ -192,36 +141,9 @@ function setupListeners() {
     }, 2000);
   });
 
-  // Calibrate
-  $('#calibrateBtn').addEventListener('click', () => {
-    chrome.runtime.openOptionsPage();
-  });
-
-  // Settings
+  // Settings / Calibrate — opens options page
   $('#settingsBtn').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
-  });
-
-  // Camera selects
-  $('#frontCamera').addEventListener('change', async (e) => {
-    await chrome.runtime.sendMessage({
-      target: 'background',
-      type: MSG.SAVE_SETTINGS,
-      settings: { frontCameraId: e.target.value || null }
-    });
-  });
-
-  $('#sideCamera').addEventListener('change', async (e) => {
-    await chrome.runtime.sendMessage({
-      target: 'background',
-      type: MSG.SAVE_SETTINGS,
-      settings: { sideCameraId: e.target.value || null }
-    });
-  });
-
-  // Refresh cameras
-  $('#refreshCameras').addEventListener('click', async () => {
-    await loadCameras();
   });
 
   // Grant camera permission
