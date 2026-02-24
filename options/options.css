@@ -1,0 +1,327 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+header h1 {
+  font-size: 28px;
+  color: #FF6B35;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 14px;
+}
+
+/* Cards */
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+/* Settings rows */
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-row label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.setting-desc {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.setting-row select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 12px;
+  background: white;
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  background: #ccc;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+.toggle input:checked + .slider {
+  background: #FF6B35;
+}
+
+.toggle input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+/* Range */
+.range-with-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-with-value input[type=range] {
+  width: 100px;
+  accent-color: #FF6B35;
+}
+
+.range-with-value span {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: #f5f5f5;
+}
+
+.btn-primary {
+  background: #FF6B35;
+  color: white;
+  border-color: #FF6B35;
+}
+
+.btn-primary:hover {
+  background: #E85A28;
+}
+
+.btn-large {
+  padding: 14px 32px;
+  font-size: 15px;
+}
+
+.btn-danger {
+  color: #F44336;
+  border-color: #F44336;
+}
+
+.btn-danger:hover {
+  background: #FFF5F5;
+}
+
+/* Calibration */
+.calibration-preview {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 16px auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.calibration-preview video {
+  width: 100%;
+  display: block;
+  transform: scaleX(-1); /* Mirror for front camera */
+}
+
+.calibration-preview canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: scaleX(-1);
+}
+
+.calibration-guide {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  padding: 12px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.calibration-controls {
+  text-align: center;
+  margin-top: 16px;
+}
+
+.calibration-controls select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  min-width: 200px;
+}
+
+.calibration-role {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.calibration-role label {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  background: #eee;
+  border-radius: 4px;
+  margin: 16px auto;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #FF6B35;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.5s ease;
+}
+
+/* Bananas preview */
+.bananas-note {
+  background: #FFF3E0;
+  border: 1px solid #FFB74D;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  color: #E65100;
+  margin: 12px 0;
+}
+
+/* Analytics */
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.analytics-stat {
+  text-align: center;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.analytics-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+}
+
+.analytics-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  padding: 20px;
+}
+
+#analyticsChart {
+  width: 100%;
+  height: 200px;
+  margin-top: 12px;
+}
+
+/* Privacy */
+.privacy-note {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+}

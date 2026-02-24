@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ShrimpWatch - Side Camera</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1a1a1a;
+      color: white;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+      padding: 20px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    h1 {
+      font-size: 24px;
+      color: #FF6B35;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    #status {
+      font-size: 14px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+
+    .status-connecting {
+      background: #2a2a00;
+      color: #FFD600;
+    }
+
+    .status-connected {
+      background: #002a00;
+      color: #4CAF50;
+    }
+
+    .status-error {
+      background: #2a0000;
+      color: #F44336;
+    }
+
+    .status-waiting {
+      background: #1a1a2a;
+      color: #64B5F6;
+    }
+
+    #videoPreview {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      background: #333;
+      display: none;
+    }
+
+    .instructions {
+      font-size: 12px;
+      color: #666;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+
+    .btn {
+      padding: 14px 32px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    .btn-start {
+      background: #FF6B35;
+      color: white;
+    }
+
+    .btn-stop {
+      background: #F44336;
+      color: white;
+    }
+
+    .keep-awake {
+      font-size: 11px;
+      color: #555;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ShrimpWatch</h1>
+    <p class="subtitle">Side Camera Companion</p>
+
+    <div id="status" class="status-waiting">
+      Initializing...
+    </div>
+
+    <video id="videoPreview" autoplay playsinline muted></video>
+
+    <button class="btn btn-start" id="startBtn" style="display:none">
+      Start Streaming
+    </button>
+    <button class="btn btn-stop" id="stopBtn" style="display:none">
+      Stop
+    </button>
+
+    <div class="instructions">
+      Place your phone to the side, camera facing you at a 90&deg; angle.<br>
+      Keep this page open and the screen on.
+    </div>
+
+    <div class="keep-awake" id="keepAwakeNote" style="display:none">
+      Screen kept awake via Wake Lock API
+    </div>
+  </div>
+
+  <!-- PeerJS from CDN -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const videoEl = document.getElementById('videoPreview');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    let peer = null;
+    let localStream = null;
+    let wakeLock = null;
+
+    // Extract peer ID from URL hash (set by QR code)
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const extensionPeerId = params.get('peer');
+
+    if (!extensionPeerId) {
+      setStatus('No connection ID found. Scan the QR code from ShrimpWatch.', 'error');
+    } else {
+      init();
+    }
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = `status-${type}`;
+    }
+
+    async function init() {
+      setStatus('Connecting to ShrimpWatch...', 'connecting');
+
+      try {
+        // Get camera - prefer back camera for side view
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 10 }
+          },
+          audio: false
+        });
+
+        videoEl.srcObject = localStream;
+        videoEl.style.display = 'block';
+
+        // Connect to extension's peer
+        peer = new Peer();
+
+        peer.on('open', (myId) => {
+          setStatus('Camera ready. Connecting to extension...', 'connecting');
+          const call = peer.call(extensionPeerId, localStream);
+
+          call.on('stream', () => {
+            // Extension acknowledged (won't actually send a stream back)
+          });
+
+          call.on('close', () => {
+            setStatus('Connection closed by extension', 'error');
+          });
+
+          call.on('error', (err) => {
+            setStatus('Call error: ' + err.message, 'error');
+          });
+
+          // Wait for data channel from extension for status
+          peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+              if (data.type === 'connected') {
+                setStatus('Streaming to ShrimpWatch!', 'connected');
+                stopBtn.style.display = 'inline-block';
+                startBtn.style.display = 'none';
+                acquireWakeLock();
+              }
+              if (data.type === 'posture_score') {
+                // Optionally show score on phone
+                setStatus(`Streaming - Last score: ${data.score}/100`, 'connected');
+              }
+            });
+            conn.on('close', () => {
+              setStatus('Disconnected from extension', 'error');
+            });
+          });
+
+          // If no data channel, just assume connected after a moment
+          setTimeout(() => {
+            if (statusEl.className === 'status-connecting') {
+              setStatus('Streaming to ShrimpWatch!', 'connected');
+              stopBtn.style.display = 'inline-block';
+              acquireWakeLock();
+            }
+          }, 3000);
+        });
+
+        peer.on('error', (err) => {
+          console.error('Peer error:', err);
+          if (err.type === 'peer-unavailable') {
+            setStatus('Extension not found. Make sure ShrimpWatch is running.', 'error');
+          } else {
+            setStatus('Connection error: ' + err.message, 'error');
+          }
+          startBtn.style.display = 'inline-block';
+          startBtn.textContent = 'Retry';
+        });
+
+      } catch (err) {
+        console.error('Camera error:', err);
+        setStatus('Could not access camera: ' + err.message, 'error');
+      }
+    }
+
+    // Keep screen awake
+    async function acquireWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          document.getElementById('keepAwakeNote').style.display = 'block';
+          wakeLock.addEventListener('release', () => {
+            document.getElementById('keepAwakeNote').style.display = 'none';
+          });
+        }
+      } catch (e) {
+        console.warn('Wake Lock not available:', e);
+      }
+    }
+
+    // Reacquire wake lock if page becomes visible again
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && localStream && !wakeLock) {
+        acquireWakeLock();
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+      if (wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+      }
+      videoEl.style.display = 'none';
+      stopBtn.style.display = 'none';
+      setStatus('Stopped', 'waiting');
+      startBtn.style.display = 'inline-block';
+      startBtn.textContent = 'Reconnect';
+    });
+
+    startBtn.addEventListener('click', () => {
+      startBtn.style.display = 'none';
+      init();
+    });
+  </script>
+</body>
+</html>

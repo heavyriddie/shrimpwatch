@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-row">
+        <img src="../icons/icon48.png" alt="ShrimpWatch" class="logo" onerror="this.style.display='none'">
+        <h1>ShrimpWatch</h1>
+      </div>
+    </div>
+
+    <!-- Score display -->
+    <div class="score-section">
+      <div class="score-ring" id="scoreRing">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#eee" stroke-width="8"/>
+          <circle id="scoreArc" cx="60" cy="60" r="52" fill="none" stroke="#4CAF50"
+            stroke-width="8" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73"
+            transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="score-value" id="scoreValue">--</div>
+        <div class="score-label" id="scoreLabel">Not started</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <div class="control-row">
+        <span>Monitoring</span>
+        <label class="toggle">
+          <input type="checkbox" id="monitorToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="control-row subdued" id="nextCheckRow" style="display:none">
+        <span id="nextCheckLabel">Next check in --s</span>
+      </div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="stats" id="statsSection" style="display:none">
+      <div class="stat">
+        <span class="stat-value" id="todayPercent">--%</span>
+        <span class="stat-label">Good today</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="currentStreak">--</span>
+        <span class="stat-label">Streak</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="checksToday">0</span>
+        <span class="stat-label">Checks</span>
+      </div>
+    </div>
+
+    <!-- Camera section -->
+    <div class="section">
+      <div class="section-title">Cameras</div>
+      <div class="camera-row">
+        <label>Front</label>
+        <select id="frontCamera"><option value="">Select camera...</option></select>
+      </div>
+      <div class="camera-row">
+        <label>Side (optional)</label>
+        <select id="sideCamera"><option value="">None</option></select>
+      </div>
+      <button class="btn btn-small" id="refreshCameras">Refresh</button>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button class="btn btn-primary" id="calibrateBtn">Calibrate</button>
+      <button class="btn" id="checkNowBtn">Check Now</button>
+      <button class="btn" id="settingsBtn">Settings</button>
+    </div>
+
+    <!-- Camera permission banner -->
+    <div class="permission-banner" id="permissionBanner" style="display:none">
+      <p>Camera access needed for posture monitoring</p>
+      <button class="btn btn-primary" id="grantCameraBtn">Grant Camera Access</button>
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar">
+      <span id="statusText">Ready</span>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

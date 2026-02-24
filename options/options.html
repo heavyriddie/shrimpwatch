@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ShrimpWatch Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🦐 ShrimpWatch Settings</h1>
+      <p class="subtitle">AI-powered posture monitoring</p>
+    </header>
+
+    <!-- Calibration section -->
+    <section class="card" id="calibrationCard">
+      <h2>Calibration</h2>
+      <p id="calibrationStatus">Not calibrated yet. Calibrate to start monitoring.</p>
+
+      <div id="calibrationUI" style="display:none">
+        <div class="calibration-preview">
+          <video id="calibrationVideo" autoplay playsinline></video>
+          <canvas id="calibrationCanvas"></canvas>
+          <div class="calibration-guide" id="calibrationGuide">
+            <p>Sit in your best posture. Shoulders back, chin level.</p>
+          </div>
+        </div>
+
+        <div class="calibration-controls">
+          <select id="calibrationCameraSelect"></select>
+          <div class="calibration-role">
+            <label>
+              <input type="radio" name="calRole" value="front" checked> Front Camera
+            </label>
+            <label>
+              <input type="radio" name="calRole" value="side"> Side Camera
+            </label>
+          </div>
+          <button class="btn btn-primary btn-large" id="captureBaselineBtn">
+            Capture Baseline
+          </button>
+          <div class="progress-bar" id="captureProgress" style="display:none">
+            <div class="progress-fill" id="captureProgressFill"></div>
+          </div>
+          <p id="calibrationResult" style="display:none"></p>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="startCalibrationBtn">
+        Start Calibration
+      </button>
+      <button class="btn" id="stopCalibrationBtn" style="display:none">
+        Cancel
+      </button>
+    </section>
+
+    <!-- Monitoring settings -->
+    <section class="card">
+      <h2>Monitoring</h2>
+      <div class="setting-row">
+        <div>
+          <label>Check interval</label>
+          <p class="setting-desc">How often to check your posture</p>
+        </div>
+        <select id="checkInterval">
+          <option value="30">30 seconds</option>
+          <option value="60">1 minute</option>
+          <option value="120">2 minutes</option>
+          <option value="300">5 minutes</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Keep camera stream open</label>
+          <p class="setting-desc">Prevents macOS camera indicator flicker</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="keepStreamOpen">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Alert settings -->
+    <section class="card">
+      <h2>Alerts</h2>
+      <div class="setting-row">
+        <div>
+          <label>Alert mode</label>
+          <p class="setting-desc">How to notify you about poor posture</p>
+        </div>
+        <select id="alertMode">
+          <option value="notification">Notification</option>
+          <option value="blur">Tab Blur</option>
+          <option value="shrimp_bananas">SHRIMP GOES BANANAS</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Poor posture alerts</label>
+          <p class="setting-desc">Notify when posture deteriorates</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="notifyOnPoor">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Positive reinforcement</label>
+          <p class="setting-desc">Celebrate when you fix your posture</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="notifyOnRecovery">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Poor posture threshold</label>
+          <p class="setting-desc">Score below this triggers alert</p>
+        </div>
+        <div class="range-with-value">
+          <input type="range" id="poorThreshold" min="10" max="60" step="5">
+          <span id="poorThresholdVal">40</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Good posture threshold</label>
+          <p class="setting-desc">Score above this counts as "good"</p>
+        </div>
+        <div class="range-with-value">
+          <input type="range" id="goodThreshold" min="50" max="95" step="5">
+          <span id="goodThresholdVal">75</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <label>Consecutive poor checks before alert</label>
+          <p class="setting-desc">Reduces false positives from brief movements</p>
+        </div>
+        <select id="consecutivePoor">
+          <option value="1">1 check</option>
+          <option value="2">2 checks</option>
+          <option value="3">3 checks</option>
+          <option value="5">5 checks</option>
+        </select>
+      </div>
+
+      <!-- Blur settings -->
+      <div id="blurSettings" style="display:none">
+        <div class="setting-row">
+          <div>
+            <label>Blur intensity</label>
+          </div>
+          <div class="range-with-value">
+            <input type="range" id="blurIntensity" min="1" max="20" step="1">
+            <span id="blurIntensityVal">5</span>px
+          </div>
+        </div>
+        <div class="setting-row">
+          <div>
+            <label>Auto-remove on good posture</label>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="blurAutoRemove">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Bananas preview -->
+      <div id="bananasPreview" style="display:none">
+        <div class="bananas-note">
+          When triggered, a giant animated shrimp will take over the screen with the
+          "SHRIMP SHRIMP SHRIMP" jingle and "SHRIMP GOES BANANAS" text. You asked for this.
+        </div>
+        <button class="btn" id="testBananasBtn">Test SHRIMP GOES BANANAS</button>
+      </div>
+    </section>
+
+    <!-- Phone Side Camera -->
+    <section class="card">
+      <h2>Phone Side Camera (WebRTC)</h2>
+      <p class="setting-desc" style="margin-bottom:12px">
+        Connect your phone as a side-view camera. Place it to your side at 90&deg; pointing at you.
+      </p>
+
+      <div id="phoneDisconnected">
+        <button class="btn btn-primary" id="connectPhoneBtn">Generate QR Code</button>
+      </div>
+
+      <div id="phoneConnecting" style="display:none">
+        <div style="text-align:center; margin:16px 0">
+          <img id="qrCodeImg" width="200" height="200" style="border-radius:8px; border:1px solid #eee;" alt="QR Code">
+          <p style="margin-top:12px; font-size:13px; color:#555">
+            Scan this QR code with your phone camera
+          </p>
+          <p id="companionUrl" style="margin-top:4px; font-size:11px; color:#999; word-break:break-all"></p>
+          <p id="peerStatus" style="margin-top:8px; font-size:12px; color:#FF9800">
+            Waiting for phone to connect...
+          </p>
+        </div>
+        <button class="btn" id="cancelPhoneBtn">Cancel</button>
+      </div>
+
+      <div id="phoneConnected" style="display:none">
+        <div style="display:flex; align-items:center; gap:12px; padding:12px; background:#E8F5E9; border-radius:8px">
+          <span style="font-size:24px">📱</span>
+          <div>
+            <div style="font-weight:600; color:#2E7D32">Phone camera connected!</div>
+            <div style="font-size:12px; color:#4CAF50">Side-view stream active</div>
+          </div>
+        </div>
+        <button class="btn btn-danger" id="disconnectPhoneBtn" style="margin-top:12px">Disconnect</button>
+      </div>
+
+      <div class="bananas-note" style="margin-top:12px">
+        <strong>How it works:</strong> Your phone streams video directly to the extension
+        over your local Wi-Fi (peer-to-peer). No data goes to the cloud.
+        Both devices must be on the same network.
+      </div>
+    </section>
+
+    <!-- Analytics -->
+    <section class="card">
+      <h2>Analytics</h2>
+      <div class="analytics-summary" id="analyticsSummary">
+        <p class="no-data">No data yet. Start monitoring to see your posture stats.</p>
+      </div>
+      <canvas id="analyticsChart" width="600" height="200" style="display:none"></canvas>
+      <div class="analytics-details" id="analyticsDetails" style="display:none">
+        <div class="analytics-grid">
+          <div class="analytics-stat">
+            <span class="analytics-value" id="avgScore">--</span>
+            <span class="analytics-label">Avg Score</span>
+          </div>
+          <div class="analytics-stat">
+            <span class="analytics-value" id="goodPercent">--%</span>
+            <span class="analytics-label">Good Posture</span>
+          </div>
+          <div class="analytics-stat">
+            <span class="analytics-value" id="totalChecksAnalytics">0</span>
+            <span class="analytics-label">Total Checks</span>
+          </div>
+          <div class="analytics-stat">
+            <span class="analytics-value" id="selfCorrections">0</span>
+            <span class="analytics-label">Self-Corrections</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="card">
+      <h2>Privacy</h2>
+      <p class="privacy-note">
+        All processing happens locally on your device. No images or data are sent anywhere.
+        Camera frames are analyzed and immediately discarded. The posture scores and statistics
+        stored are just numbers — no images are ever saved.
+      </p>
+      <p class="privacy-note" style="margin-top:8px; color:#999;">
+        On macOS, a green dot in the menu bar indicates camera is active. This is normal.
+      </p>
+      <button class="btn btn-danger" id="clearDataBtn">Clear All Data</button>
+    </section>
+  </div>
+
+  <script src="options.js" type="module"></script>
+</body>
+</html>
