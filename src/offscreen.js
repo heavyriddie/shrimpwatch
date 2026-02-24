@@ -130,7 +130,13 @@ async function captureAndAnalyze(cameras, calibration) {
 
 async function captureCalibrationFrames(cameraRole, deviceId, numFrames, intervalMs) {
   const det = await initDetector();
-  await getOrCreateStream(cameraRole, deviceId);
+  // If deviceId is __webrtc__, the phone stream is already in streams/videos/canvases
+  if (deviceId !== '__webrtc__') {
+    await getOrCreateStream(cameraRole, deviceId);
+  }
+  if (!videos[cameraRole] || !canvases[cameraRole]) {
+    throw new Error(`No ${cameraRole} camera stream available`);
+  }
 
   const metricsList = [];
   for (let i = 0; i < numFrames; i++) {

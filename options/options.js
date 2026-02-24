@@ -122,8 +122,11 @@ function stopPreview() {
 }
 
 async function captureBaseline() {
-  const deviceId = $('#calibrationCameraSelect').value;
   const role = document.querySelector('input[name="calRole"]:checked').value;
+
+  // If side camera and phone is connected, use the phone's WebRTC stream
+  const phoneConnected = $('#phoneConnected')?.style.display === 'block';
+  const deviceId = (role === 'side' && phoneConnected) ? '__webrtc__' : $('#calibrationCameraSelect').value;
 
   if (!deviceId) return;
 
@@ -166,15 +169,33 @@ async function captureBaseline() {
       const settingsKey = role === 'front' ? 'frontCameraId' : 'sideCameraId';
       await saveSettings({ [settingsKey]: deviceId });
 
-      $('#calibrationResult').style.display = 'block';
-      $('#calibrationResult').textContent =
-        `${role === 'front' ? 'Front' : 'Side'} camera calibrated successfully!`;
-      $('#calibrationResult').style.color = '#4CAF50';
-
-      // Notify service worker
+      // Notify service worker (auto-starts monitoring if first calibration)
       chrome.runtime.sendMessage({ target: 'background', type: MSG.CALIBRATION_COMPLETE });
 
       await loadCalibrationStatus();
+
+      // Show success with guidance
+      const updated = await getCalibration();
+      const hasFront = !!updated?.front;
+      const hasSide = !!updated?.side;
+
+      $('#calibrationResult').style.display = 'block';
+      $('#calibrationResult').style.color = '#4CAF50';
+
+      if (hasFront && hasSide) {
+        $('#calibrationResult').innerHTML =
+          `<strong>Both cameras calibrated!</strong> Monitoring is now active. ` +
+          `You can close this page — ShrimpWatch will check your posture automatically and alert you if it deteriorates.`;
+      } else if (role === 'front' && !hasSide) {
+        $('#calibrationResult').innerHTML =
+          `<strong>Front camera calibrated!</strong> ` +
+          `You can start monitoring now, or also calibrate a side camera for better accuracy. ` +
+          `Select "Side Camera" above to add one.`;
+      } else {
+        $('#calibrationResult').innerHTML =
+          `<strong>${role === 'front' ? 'Front' : 'Side'} camera calibrated!</strong> ` +
+          `Monitoring is now active.`;
+      }
     } else {
       throw new Error(result?.error || 'No baseline returned');
     }
@@ -386,21 +407,31 @@ function setupListeners() {
 
   // Test SHRIMP GOES BANANAS
   $('#testBananasBtn').addEventListener('click', async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
+    // Find a regular web page tab (not extension/chrome pages)
+    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || /^(chrome|chrome-extension|edge|about|devtools):/.test(tab.url || '')) {
+      [tab] = await chrome.tabs.query({ currentWindow: true, url: ['http://*/*', 'https://*/*'] });
+    }
+    if (!tab) {
+      // No web page tab found — open one
+      tab = await chrome.tabs.create({ url: 'https://example.com', active: false });
+      // Wait for it to load
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
+      chrome.tabs.update(tab.id, { active: true }); // switch to it
+    } catch (e) {
       try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/blur-overlay.js']
+        });
         await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
-      } catch (e) {
-        // If content script not loaded, try scripting API
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['content/blur-overlay.js']
-          });
-          await chrome.tabs.sendMessage(tab.id, { type: 'SHRIMP_BANANAS', score: 15 });
-        } catch (e2) {
-          alert('Could not test on this tab. Try a regular web page.');
-        }
+        chrome.tabs.update(tab.id, { active: true });
+      } catch (e2) {
+        alert('Could not test. Open any website and try again.');
       }
     }
   });

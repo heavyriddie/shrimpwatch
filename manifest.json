@@ -10,6 +10,7 @@
     "offscreen",
     "storage",
     "activeTab",
+    "tabs",
     "scripting"
   ],
 

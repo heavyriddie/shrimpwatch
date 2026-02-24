@@ -167,10 +167,10 @@
       setStatus('Connecting to ShrimpWatch...', 'connecting');
 
       try {
-        // Get camera - prefer back camera for side view
+        // Get front camera so user can see themselves when positioning phone
         localStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: 'environment' },
+            facingMode: { ideal: 'user' },
             width: { ideal: 640 },
             height: { ideal: 480 },
             frameRate: { ideal: 10 }
