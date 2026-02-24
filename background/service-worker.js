@@ -70,6 +70,12 @@ async function stopMonitoring() {
       await chrome.tabs.sendMessage(session.blurredTabId, { type: MSG.SHRIMP_BANANAS_STOP });
     } catch (e) { /* tab may not exist */ }
   }
+
+  // Release camera streams
+  try {
+    await chrome.runtime.sendMessage({ target: 'offscreen', type: MSG.STOP_STREAMS });
+  } catch (e) { /* offscreen may not exist */ }
+
   await saveSession({ ...DEFAULT_SESSION });
   console.log('[ShrimpWatch] Monitoring stopped');
 }
@@ -117,6 +123,13 @@ async function performPostureCheck() {
     }
   } catch (err) {
     console.error('[ShrimpWatch] Check failed:', err);
+  }
+
+  // Release camera between checks if keepStreamOpen is off
+  if (!settings.keepStreamOpen) {
+    try {
+      await chrome.runtime.sendMessage({ target: 'offscreen', type: MSG.STOP_STREAMS });
+    } catch (e) { /* offscreen may not exist */ }
   }
 }
 
