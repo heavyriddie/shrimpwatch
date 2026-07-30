@@ -1,0 +1,18 @@
+# Project files hold raw genotypes and relatives' names. Never commit one.
+*.db
+*.db-wal
+*.db-shm
+
+# Raw DNA downloads and anything derived from them.
+demo-data/
+*_23andme.txt
+*_ancestry.txt
+*-inferred.txt
+truth.json
+
+# Generated reports contain identifiable genetic information.
+roots-report-*.html
+report.html
+
+__pycache__/
+*.pyc

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roots-genealogy"
+version = "0.1.0"
+description = "Offline genetic genealogy toolkit: raw DNA, match lists, family trees, and the reasoning that connects them"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+roots = "roots.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["roots*"]
