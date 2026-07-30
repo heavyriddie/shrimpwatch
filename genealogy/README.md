@@ -72,6 +72,16 @@ FAMC backlinks, ANSEL declarations, xref collisions between files. Adoptive
 and foster links are tracked but excluded from genetic reckoning, because an
 adoptive parent transmits no DNA.
 
+**Tracks documentary evidence.** Sources, citations, and what each record
+actually asserts about a person — kept separate from the tree itself, so two
+documents can disagree and both stay on file. It also generates a prioritised
+list of records to look up next, derived from where your tree runs out and
+where the DNA says the answers must be. The suggestions are
+jurisdiction-aware: an England and Wales marriage certificate names both
+fathers, so it advances two lines for one purchase and is usually the right
+thing to buy first, whereas in Scotland a death certificate names both parents
+of the deceased and is cheaper still.
+
 **Investigates.** Checks documented relationships against measured sharing and
 flags the ones that cannot both be true; projects your paternal matches onto
 your untested father so they read as *his* relatives; identifies which clusters
@@ -162,13 +172,19 @@ roots import-matches mum-matches.csv --kit mother-merged
 roots sides --child self-merged --parent mother-merged   # splits the match list
 roots cluster --kit self-merged
 roots import-tree yourtree.ged
+roots import-citations yourtree.ged                      # what you already sourced
 roots investigate --kit self-merged
+roots research --kit self-merged --why                   # what to look up next
 roots report --kit self-merged --out report.html
 ```
 
-**[docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)** covers what to download from
-which site, which sites can triangulate at all, and how to record
-relationships you already know.
+**[docs/DATA_SOURCES.md](docs/DATA_SOURCES.md)** covers the DNA side: what to
+download from which testing site, which of them can triangulate at all, and
+how to record relationships you already know.
+
+**[docs/RECORD_SOURCES.md](docs/RECORD_SOURCES.md)** covers the documentary
+side: births, marriages, deaths, censuses, parish registers and wills, what
+each provider costs, and what order to spend money in.
 
 ---
 
@@ -240,12 +256,15 @@ roots/
   tree/
     gedcom.py          GEDCOM 5.5.1 read/write, duplicate detection
     kinship.py         ancestors, descendants, relationship paths
+  evidence.py          sources, citations, and the research planner
   hypothesis.py        the investigation engine
   report.py            self-contained HTML reports
   demo.py              synthetic family generator with ground truth
   cli.py               command line interface
-tests/                 67 tests, run with python3 -m unittest discover tests
-docs/DATA_SOURCES.md   where the data comes from
+tests/                 83 tests, run with python3 -m unittest discover tests
+docs/
+  DATA_SOURCES.md      DNA testing sites: what to export, who can triangulate
+  RECORD_SOURCES.md    record providers: what each costs and is good for
 ```
 
 Run the tests with:

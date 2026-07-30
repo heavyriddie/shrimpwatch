@@ -202,6 +202,48 @@ CREATE TABLE IF NOT EXISTS sim_cache (
     key     TEXT PRIMARY KEY,
     payload TEXT
 );
+
+-- Documentary sources: a record you have actually looked at, whether that
+-- was a GRO certificate, a census page, or a parish register image.
+CREATE TABLE IF NOT EXISTS source (
+    id          INTEGER PRIMARY KEY,
+    title       TEXT NOT NULL,
+    repository  TEXT,   -- GRO, FindMyPast, FamilySearch, ScotlandsPeople, ...
+    record_type TEXT,   -- birth | marriage | death | census | parish | will | ...
+    reference   TEXT,   -- index reference, piece number, volume/page
+    url         TEXT,
+    accessed    TEXT,
+    cost        REAL,
+    notes       TEXT
+);
+
+-- What a source actually asserts about a person. Kept separate from the
+-- individual record so that two sources can disagree and both be retained.
+CREATE TABLE IF NOT EXISTS evidence (
+    id           INTEGER PRIMARY KEY,
+    source_id    INTEGER REFERENCES source(id) ON DELETE CASCADE,
+    subject_xref TEXT,
+    claim_type   TEXT,   -- birth | death | marriage | parentage | residence | ...
+    claim        TEXT,
+    supports     INTEGER DEFAULT 1,  -- 0 when the record contradicts the tree
+    confidence   TEXT,   -- direct | indirect | negative
+    notes        TEXT
+);
+CREATE INDEX IF NOT EXISTS evidence_subject ON evidence (subject_xref);
+
+-- Records worth ordering next, generated from where the tree runs out.
+CREATE TABLE IF NOT EXISTS research_task (
+    id           INTEGER PRIMARY KEY,
+    subject      TEXT,
+    subject_xref TEXT,
+    question     TEXT,
+    record_set   TEXT,
+    repository   TEXT,
+    cost_band    TEXT,   -- free | low | subscription | unknown
+    priority     REAL,
+    status       TEXT DEFAULT 'open',
+    created_at   TEXT
+);
 """
 
 

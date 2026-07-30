@@ -681,6 +681,142 @@ def cmd_investigate(args) -> int:
     return 0
 
 
+def cmd_source(args) -> int:
+    from . import evidence as ev
+
+    store = _open_store(args)
+    if args.action == "add":
+        if not args.title:
+            raise SystemExit("--title is required when adding a source")
+        sid = ev.add_source(
+            store, args.title, repository=args.repository,
+            record_type=args.type, reference=args.reference, url=args.url,
+            cost=args.cost, notes=args.notes,
+        )
+        _out(f"source {sid} recorded: {args.title}")
+        _out("link it to a person with: roots evidence add --source "
+             f"{sid} --xref <xref> --type birth --claim '...'")
+    else:
+        rows = [[r["id"], (r["title"] or "")[:38], r["repository"] or "-",
+                 r["record_type"] or "-", r["accessed"] or "-",
+                 f"{r['cost']:.2f}" if r["cost"] else "-"]
+                for r in ev.sources(store)]
+        _table(rows, ["id", "title", "repository", "type", "accessed", "cost"])
+        total = sum(r[5] != "-" and float(r[5]) or 0 for r in rows)
+        if total:
+            _out(f"\ntotal spent on records: {total:.2f}")
+    store.close()
+    return 0
+
+
+def cmd_evidence(args) -> int:
+    from . import evidence as ev
+    from .tree import kinship
+
+    store = _open_store(args)
+    if args.action == "add":
+        for required in ("source", "xref", "claim"):
+            if getattr(args, required) is None:
+                raise SystemExit(f"--{required} is required when adding evidence")
+        eid = ev.add_evidence(
+            store, args.source, args.xref, args.type, args.claim,
+            supports=not args.contradicts, confidence=args.confidence,
+            notes=args.notes,
+        )
+        verb = "contradicts" if args.contradicts else "supports"
+        _out(f"evidence {eid} recorded: {verb} the tree for {args.xref}")
+        if args.contradicts:
+            _out("a contradiction between documents is exactly what DNA is "
+                 "qualified to settle -- check 'roots investigate' for whether "
+                 "the sharing agrees with the tree here")
+    elif args.action == "conflicts":
+        rows = [[r["subject_xref"], r["claim_type"] or "-",
+                 (r["claim"] or "")[:40], (r["title"] or "")[:28]]
+                for r in ev.contradictions(store)]
+        _table(rows, ["person", "claim type", "claim", "source"])
+    else:
+        idx = kinship.load_tree(store)
+        cov = ev.coverage(store, idx)
+        _rule("documentary coverage")
+        _out(cov.summary())
+        if cov.total_cost:
+            _out(f"spent so far: {cov.total_cost:.2f}")
+        if cov.individuals and cov.fraction < 0.5:
+            _out(textwrap.fill(
+                "Most of this tree rests on assertion rather than documents. "
+                "That matters before using DNA to 'confirm' any of it: DNA can "
+                "only confirm a relationship you have stated correctly.", 78))
+        if args.xref:
+            _rule(f"evidence for {idx.name(args.xref)}")
+            rows = [[r["claim_type"] or "-", (r["claim"] or "")[:40],
+                     "supports" if r["supports"] else "CONTRADICTS",
+                     (r["title"] or "")[:28]]
+                    for r in ev.evidence_for(store, args.xref)]
+            _table(rows, ["claim type", "claim", "stance", "source"])
+    store.close()
+    return 0
+
+
+def cmd_research(args) -> int:
+    from . import evidence as ev
+    from .tree import kinship
+
+    store = _open_store(args)
+    idx = kinship.load_tree(store)
+    root = args.root
+    if not root:
+        row = store.db.execute(
+            "SELECT tree_xref FROM person WHERE tree_xref IS NOT NULL LIMIT 1"
+        ).fetchone()
+        root = row["tree_xref"] if row else None
+    kit_id = None
+    if args.kit:
+        kit_id = _resolve_kit(store, args.kit).id
+
+    if not root and not kit_id:
+        raise SystemExit(
+            "nothing to work from. Link yourself into the tree with "
+            "'roots person --label self --tree-xref <xref>', or pass --kit to "
+            "get tasks from your DNA clusters."
+        )
+
+    tasks = ev.generate_tasks(store, root=root, idx=idx, kit_id=kit_id,
+                              limit=args.limit)
+    if not tasks:
+        _out("no research tasks generated. Import a tree and link yourself "
+             "into it, or run 'roots cluster' first.")
+        store.close()
+        return 0
+
+    _rule("what to look up next")
+    _out(textwrap.fill(
+        "Ordered by how much each would unlock per pound spent. Costs are "
+        "bands, not prices -- see docs/RECORD_SOURCES.md for current figures.",
+        78))
+    _out()
+    for t in tasks:
+        _out(t.line())
+        if t.rationale and args.why:
+            _out(textwrap.fill(t.rationale, 72, initial_indent="        why: ",
+                               subsequent_indent="             "))
+        _out()
+    store.close()
+    return 0
+
+
+def cmd_import_citations(args) -> int:
+    from . import evidence as ev
+
+    store = _open_store(args)
+    stats = ev.import_gedcom_sources(store, args.path)
+    _out(f"{os.path.basename(args.path)}: {stats['sources']} sources, "
+         f"{stats['citations']} citations")
+    _out("these record what has already been looked up, which is what stops "
+         "you buying the same certificate twice")
+    store.close()
+    return 0
+
+
 def cmd_report(args) -> int:
     from . import report as report_mod
 
@@ -752,13 +888,19 @@ def cmd_guide(args) -> int:
         9.  roots cluster --kit self-merged
             roots triangulate --kit self-merged
         10. roots import-tree yourtree.ged
+            roots import-citations yourtree.ged
             roots person --label self --tree-xref I1
             roots link --match <id> --xref <xref>     for matches you know
         11. roots investigate --kit self-merged
-            roots report --kit self-merged --out report.html
+            roots research --kit self-merged --why
+              Turns the walls in your tree into a list of records to order,
+              cheapest and highest-yield first.
+        12. roots report --kit self-merged --out report.html
 
-        See docs/DATA_SOURCES.md for what to download from which site, and
-        which sites can triangulate at all.
+        docs/DATA_SOURCES.md   which testing sites to export from, and which
+                               of them can triangulate at all.
+        docs/RECORD_SOURCES.md which record providers cost what, and in what
+                               order to spend money on certificates.
         """))
     return 0
 
@@ -948,6 +1090,44 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--min-cm", type=float, default=7.0)
     sp.add_argument("--limit", type=int, default=8)
     sp.set_defaults(func=cmd_investigate)
+
+
+    sp = sub.add_parser("source", help="record documents you have looked at")
+    sp.add_argument("action", choices=["add", "list"], nargs="?", default="list")
+    sp.add_argument("--title")
+    sp.add_argument("--repository", help="GRO, FindMyPast, ScotlandsPeople, ...")
+    sp.add_argument("--type", help="birth | marriage | death | census | parish | will")
+    sp.add_argument("--reference", help="index reference, piece number, volume/page")
+    sp.add_argument("--url")
+    sp.add_argument("--cost", type=float)
+    sp.add_argument("--notes")
+    sp.set_defaults(func=cmd_source)
+
+    sp = sub.add_parser("evidence", help="what a document asserts about a person")
+    sp.add_argument("action", choices=["add", "list", "conflicts"], nargs="?",
+                    default="list")
+    sp.add_argument("--source", type=int)
+    sp.add_argument("--xref")
+    sp.add_argument("--type", default="identity")
+    sp.add_argument("--claim")
+    sp.add_argument("--contradicts", action="store_true",
+                    help="the document disagrees with the tree as it stands")
+    sp.add_argument("--confidence", default="direct",
+                    choices=["direct", "indirect", "negative"])
+    sp.add_argument("--notes")
+    sp.set_defaults(func=cmd_evidence)
+
+    sp = sub.add_parser("research", help="prioritised list of records to look up")
+    sp.add_argument("--root", help="your xref in the tree")
+    sp.add_argument("--kit", help="also generate tasks from DNA clusters")
+    sp.add_argument("--limit", type=int, default=25)
+    sp.add_argument("--why", action="store_true", help="explain each suggestion")
+    sp.set_defaults(func=cmd_research)
+
+    sp = sub.add_parser("import-citations",
+                        help="pull source citations out of a GEDCOM")
+    sp.add_argument("path")
+    sp.set_defaults(func=cmd_import_citations)
 
     sp = sub.add_parser("report", help="write an HTML report")
     sp.add_argument("--kit", required=True)
