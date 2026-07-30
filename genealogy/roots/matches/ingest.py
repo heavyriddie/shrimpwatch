@@ -383,6 +383,59 @@ def import_segments(
 # shared matches
 
 
+def carry_matches(
+    store: Store, source_kit_ids: Sequence[int], target_kit_id: int
+) -> Dict[str, int]:
+    """Copy match data from a person's original kits onto their merged kit.
+
+    A match is a fact about a *person*, not about one of their kits: the
+    cousin who matches your 23andMe kit matches you, and merging your kits
+    does not change that. Without this, merging quietly strands every match
+    list on the old kit and each later step reports having nothing to work
+    with, which looks like a bug and is genuinely hard to diagnose.
+
+    The platform is preserved on each copied row, because side inference
+    depends on knowing which database a match came from -- absence from a
+    parent's list only means something within one platform.
+    """
+    stats = {"matches": 0, "segments": 0, "shared": 0}
+    id_map: Dict[int, int] = {}
+    for kit_id in source_kit_ids:
+        if kit_id == target_kit_id:
+            continue
+        for m in store.matches(kit_id):
+            new_id = store.upsert_match(
+                target_kit_id, m["source"], m["remote_id"],
+                name=m["name"], total_cm=m["total_cm"], seg_count=m["seg_count"],
+                largest_cm=m["largest_cm"], shared_x_cm=m["shared_x_cm"],
+                predicted=m["predicted"], side=m["side"],
+                side_evidence=m["side_evidence"], tree_xref=m["tree_xref"],
+                sex=m["sex"], birth_year=m["birth_year"], notes=m["notes"],
+                extra=m["extra"],
+            )
+            id_map[m["id"]] = new_id
+            stats["matches"] += 1
+            segs = [
+                (s["chrom"], s["start_bp"], s["end_bp"], s["cm"], s["snps"])
+                for s in store.match_segments(m["id"])
+            ]
+            if segs:
+                store.replace_match_segments(new_id, segs)
+                stats["segments"] += len(segs)
+
+    for kit_id in source_kit_ids:
+        if kit_id == target_kit_id:
+            continue
+        for edge in store.shared_matches(kit_id):
+            a, b = id_map.get(edge["a_id"]), id_map.get(edge["b_id"])
+            if a is None or b is None:
+                continue
+            store.add_shared_match(target_kit_id, a, b, edge["cm"], edge["kind"])
+            stats["shared"] += 1
+    store.commit()
+    return stats
+
+
 def import_shared_matches(
     store: Store,
     kit_id: int,

@@ -82,6 +82,13 @@ fathers, so it advances two lines for one purchase and is usually the right
 thing to buy first, whereas in Scotland a death certificate names both parents
 of the deceased and is cheaper still.
 
+**Fits a research plan to a budget.** Free lookups are never deferred,
+subscription costs are treated as shared across every task they cover rather
+than charged per record, and what remains is chosen by yield per pound. One
+command, `roots auto`, runs every free and deterministic step end to end and
+is safe to put on a cron job — it makes no network requests, so it costs
+nothing to run forever.
+
 **Investigates.** Checks documented relationships against measured sharing and
 flags the ones that cannot both be true; projects your paternal matches onto
 your untested father so they read as *his* relatives; identifies which clusters
@@ -186,6 +193,10 @@ how to record relationships you already know.
 side: births, marriages, deaths, censuses, parish registers and wills, what
 each provider costs, and what order to spend money in.
 
+**[docs/AUTOMATION.md](docs/AUTOMATION.md)** covers what can and cannot be
+automated — which services have usable APIs, which forbid it, and what a
+strict budget actually buys.
+
 ---
 
 ## Accuracy and honesty about limits
@@ -257,14 +268,16 @@ roots/
     gedcom.py          GEDCOM 5.5.1 read/write, duplicate detection
     kinship.py         ancestors, descendants, relationship paths
   evidence.py          sources, citations, and the research planner
+  budget.py            costed plans within a spending limit
   hypothesis.py        the investigation engine
   report.py            self-contained HTML reports
   demo.py              synthetic family generator with ground truth
   cli.py               command line interface
-tests/                 83 tests, run with python3 -m unittest discover tests
+tests/                 100 tests, run with python3 -m unittest discover tests
 docs/
   DATA_SOURCES.md      DNA testing sites: what to export, who can triangulate
   RECORD_SOURCES.md    record providers: what each costs and is good for
+  AUTOMATION.md        what can be automated, and what a budget buys
 ```
 
 Run the tests with:

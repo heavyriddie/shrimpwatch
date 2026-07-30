@@ -201,6 +201,10 @@ def cmd_merge_kits(args) -> int:
          f"({stats['conflict']:,} conflicting sites set to no-call)")
     gained = stats["positions"] - max(k.snp_count or 0 for k in kits)
     _out(f"that is {gained:,} more usable positions than the best single kit")
+    carried = ingest_mod.carry_matches(store, [k.id for k in kits], new_id)
+    if carried["matches"]:
+        _out(f"carried {carried['matches']} matches, {carried['segments']} segments "
+             f"and {carried['shared']} shared-match links onto the merged kit")
     store.close()
     return 0
 
@@ -788,10 +792,46 @@ def cmd_research(args) -> int:
         store.close()
         return 0
 
+    if args.budget:
+        from . import budget as budget_mod
+
+        costs = budget_mod.load_costs(args.cost_file) if args.cost_file else None
+        led = budget_mod.ledger(store)
+        plan = budget_mod.plan_within_budget(tasks, args.budget, costs)
+        _rule(f"what to do next, within £{args.budget:.2f}")
+        _out(plan.summary())
+        if led.spent:
+            _out(f"(you have already spent £{led.spent:.2f} on {led.records} records)")
+        if plan.subscription_taken:
+            repo, fee = plan.subscription_taken
+            _out()
+            _out(textwrap.fill(
+                f"The plan includes one month of {repo} at £{fee:.2f}. That fee "
+                "covers every subscription task below, so do them all inside the "
+                "same month rather than spreading them out.", 78))
+        _out()
+        for task, cost in plan.selected:
+            price = "free" if cost.kind == "free" else (
+                "included" if cost.kind == "subscription" else f"£{cost.amount:.2f}")
+            _out(f"{task.line()}\n        cost: {price}"
+                 + (f" -- {cost.note}" if cost.note else ""))
+            if task.rationale and args.why:
+                _out(textwrap.fill(task.rationale, 72,
+                                   initial_indent="        why: ",
+                                   subsequent_indent="             "))
+            _out()
+        if plan.deferred:
+            _rule("deferred until there is more budget")
+            for task, cost in plan.deferred[:10]:
+                _out(f"  £{cost.amount:6.2f}  {task.subject}: {task.question}")
+        store.close()
+        return 0
+
     _rule("what to look up next")
     _out(textwrap.fill(
         "Ordered by how much each would unlock per pound spent. Costs are "
-        "bands, not prices -- see docs/RECORD_SOURCES.md for current figures.",
+        "bands, not prices -- see docs/RECORD_SOURCES.md for current figures. "
+        "Pass --budget to cost the plan and fit it to a limit.",
         78))
     _out()
     for t in tasks:
@@ -815,6 +855,145 @@ def cmd_import_citations(args) -> int:
          "you buying the same certificate twice")
     store.close()
     return 0
+
+
+def cmd_budget(args) -> int:
+    from . import budget as budget_mod
+
+    store = _open_store(args)
+    if args.set is not None:
+        budget_mod.set_cap(store, args.set if args.set > 0 else None)
+    led = budget_mod.ledger(store)
+    _rule("budget")
+    _out(led.summary())
+    rows = [[r["id"], (r["title"] or "")[:40], r["repository"] or "-",
+             f"{r['cost']:.2f}" if r["cost"] else "0.00"]
+            for r in store.db.execute(
+                "SELECT * FROM source WHERE cost IS NOT NULL AND cost > 0 "
+                "ORDER BY id DESC LIMIT 20")]
+    if rows:
+        _out()
+        _table(rows, ["id", "record", "repository", "cost"])
+    _out()
+    _out(textwrap.fill(
+        f"Cost estimates were last checked on {budget_mod.VERIFIED_ON}; see "
+        "docs/RECORD_SOURCES.md. Override them with --cost-file if they have "
+        "aged.", 78))
+    store.close()
+    return 0
+
+
+def cmd_auto(args) -> int:
+    """Run every analysis step that is free and deterministic."""
+    from . import budget as budget_mod
+    from . import evidence as ev
+    from .tree import kinship
+
+    store = _open_store(args)
+    gmap = _load_map(store, args)
+    done: List[str] = []
+    skipped: List[str] = []
+
+    def step(name: str, ok: bool, detail: str = "") -> None:
+        (done if ok else skipped).append(f"{name}{': ' + detail if detail else ''}")
+        _out(f"  {'ok  ' if ok else 'skip'}  {name}" + (f" -- {detail}" if detail else ""))
+
+    _rule("automated pipeline")
+    _out("Every step here is free, offline and repeatable. Nothing that costs")
+    _out("money or needs a login happens without you.")
+    _out()
+
+    for person in {k.person for k in store.kits() if k.person}:
+        kits = [k for k in store.kits_for_person(person) if k.vendor != "merged"]
+        merged_label = f"{person}-merged"
+        if len(kits) > 1 and not store.kit(merged_label):
+            try:
+                _new, stats = qc_mod.merge_kits(
+                    store, [k.id for k in kits], merged_label, person,
+                    build=kits[0].build or "37")
+                carried = ingest_mod.carry_matches(
+                    store, [k.id for k in kits], _new)
+                step(f"merge kits for {person}", True,
+                     f"{stats['positions']:,} positions"
+                     + (f", {carried['matches']} matches carried"
+                        if carried["matches"] else ""))
+            except Exception as exc:
+                step(f"merge kits for {person}", False, str(exc))
+        elif store.kit(merged_label):
+            step(f"merge kits for {person}", True, "already merged")
+
+    child = store.kit(args.self_kit) if args.self_kit else _best_kit(store, "self")
+    parent = store.kit(args.parent_kit) if args.parent_kit else _best_kit(store, args.role)
+    if not child:
+        _out("\nno kit for 'self'. Import one with roots import-dna --person self")
+        store.close()
+        return 1
+
+    if parent:
+        cmp = relate_mod.compare(store, child.id, parent.id, gmap)
+        verdict = relate_mod.classify_close(cmp, gmap)
+        ok = verdict.label == "parent/child"
+        step("verify parent-child", ok, f"{cmp.total_cm:.0f} cM, {verdict.label}")
+        if ok:
+            stats = phase_mod.phase_against_parent(
+                store, child.id, parent.id, parent_role=args.role,
+                child_sex=child.inferred_sex)
+            step("phase", True,
+                 f"{stats.phased_fraction:.0%} of sites, "
+                 f"{stats.mendelian_rate:.3%} Mendelian errors")
+            report = sides_mod.assign_from_parent_list(
+                store, child.id, parent.id, parent_role=args.role)
+            step("assign sides", bool(report.calls), report.summary())
+    else:
+        step("verify parent-child", False, f"no kit for '{args.role}'")
+
+    result = cluster_mod.cluster_matches(store, child.id)
+    if result.clusters:
+        cluster_mod.persist(store, child.id, result)
+    step("cluster", bool(result.clusters), result.summary())
+
+    groups = tri_mod.overlap_groups(store, child.id, gmap)
+    step("triangulate", bool(groups), f"{len(groups)} shared regions")
+
+    findings = hypo.investigate(store, child.id, gmap, iterations=args.iterations)
+    step("investigate", bool(findings), f"{len(findings)} findings")
+
+    idx = kinship.load_tree(store)
+    row = store.db.execute(
+        "SELECT tree_xref FROM person WHERE tree_xref IS NOT NULL LIMIT 1").fetchone()
+    root = row["tree_xref"] if row else None
+    tasks = ev.generate_tasks(store, root=root, idx=idx, kit_id=child.id)
+    step("plan research", bool(tasks), f"{len(tasks)} tasks")
+
+    if tasks and args.budget:
+        plan = budget_mod.plan_within_budget(tasks, args.budget)
+        step("fit to budget", True, plan.summary())
+
+    if args.report:
+        from . import report as report_mod
+        path = report_mod.build_report(
+            store, child.id, gmap, args.report, findings=findings,
+            cluster_result=result, iterations=args.iterations)
+        step("report", True, path)
+
+    _rule("summary")
+    _out(f"{len(done)} steps completed, {len(skipped)} skipped")
+    if skipped:
+        _out()
+        _out("skipped steps need data you have not imported yet:")
+        for s in skipped:
+            _out(f"  - {s}")
+    store.close()
+    return 0
+
+
+def _best_kit(store: Store, person: str):
+    """Prefer a person's merged kit, falling back to any kit they have."""
+    kits = store.kits_for_person(person)
+    if not kits:
+        return None
+    merged = [k for k in kits if k.vendor == "merged"]
+    return merged[0] if merged else kits[0]
 
 
 def cmd_report(args) -> int:
@@ -1122,12 +1301,28 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--kit", help="also generate tasks from DNA clusters")
     sp.add_argument("--limit", type=int, default=25)
     sp.add_argument("--why", action="store_true", help="explain each suggestion")
+    sp.add_argument("--budget", type=float,
+                    help="only propose what fits this many pounds")
+    sp.add_argument("--cost-file", help="JSON overriding the built-in price table")
     sp.set_defaults(func=cmd_research)
 
     sp = sub.add_parser("import-citations",
                         help="pull source citations out of a GEDCOM")
     sp.add_argument("path")
     sp.set_defaults(func=cmd_import_citations)
+
+    sp = sub.add_parser("budget", help="what you have spent, and the cap")
+    sp.add_argument("--set", type=float, help="set a spending cap (0 clears it)")
+    sp.set_defaults(func=cmd_budget)
+
+    sp = sub.add_parser("auto", help="run every free, deterministic step")
+    sp.add_argument("--self-kit", help="kit for you (default: your merged kit)")
+    sp.add_argument("--parent-kit", help="kit for the tested parent")
+    sp.add_argument("--role", choices=["mother", "father"], default="mother")
+    sp.add_argument("--budget", type=float, help="also fit a research plan to a budget")
+    sp.add_argument("--report", help="write an HTML report here too")
+    sp.add_argument("--iterations", type=int, default=1500)
+    sp.set_defaults(func=cmd_auto)
 
     sp = sub.add_parser("report", help="write an HTML report")
     sp.add_argument("--kit", required=True)
